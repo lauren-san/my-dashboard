@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FastForward Logistics Dashboard</title>
+    <meta
+      name="description"
+      content="Internal operations dashboard for FastForward Logistics leadership meetings."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-a" aria-hidden="true"></div>
+    <div class="bg-orb orb-b" aria-hidden="true"></div>
+
+    <main class="container">
+      <header class="hero card fade-in">
+        <div class="brand-wrap">
+          <div class="logo" aria-hidden="true">
+            <svg viewBox="0 0 120 120" role="img" aria-label="FastForward Logistics logo">
+              <defs>
+                <linearGradient id="logoGradient" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#5c6cff" />
+                  <stop offset="100%" stop-color="#9a5cff" />
+                </linearGradient>
+              </defs>
+              <circle cx="60" cy="60" r="54" fill="url(#logoGradient)" />
+              <path
+                d="M32 68h42l-10 16h14l20-32H56l10-16H52L32 68z"
+                fill="white"
+                opacity="0.92"
+              />
+            </svg>
+          </div>
+          <div>
+            <h1>FastForward Logistics Dashboard</h1>
+            <p class="subtitle">
+              A real-time executive snapshot of shipment health, service reliability, and regional
+              exceptions across the network.
+            </p>
+          </div>
+        </div>
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle color theme">
+          <span class="toggle-text">Switch to Light Mode</span>
+        </button>
+      </header>
+
+      <section class="stats-grid">
+        <article class="card metric-card stagger" data-clickable="true" tabindex="0" role="button">
+          <h2>Shipment Volume</h2>
+          <p class="metric-value" id="shipmentVolume">12,460</p>
+          <p class="metric-trend positive" id="shipmentTrend">+2.4% vs last hour</p>
+        </article>
+
+        <article class="card metric-card stagger" data-clickable="true" tabindex="0" role="button">
+          <h2>On-Time Delivery</h2>
+          <p class="metric-value" id="onTimeRate">96.8%</p>
+          <p class="metric-trend positive" id="onTimeTrend">+0.6 pts today</p>
+        </article>
+
+        <article class="card metric-card stagger" data-clickable="true" tabindex="0" role="button">
+          <h2>Open Exceptions</h2>
+          <p class="metric-value" id="openExceptions">137</p>
+          <p class="metric-trend warning" id="exceptionTrend">-9 in last 2 hours</p>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="card chart-card stagger" data-clickable="true" tabindex="0" role="button">
+          <div class="card-head">
+            <h2>Shipment Volume by Hour</h2>
+            <span class="pill" id="volumeStatus">Live</span>
+          </div>
+          <svg id="volumeChart" viewBox="0 0 520 220" preserveAspectRatio="none" aria-label="Shipment volume line chart"></svg>
+        </article>
+
+        <article class="card chart-card stagger" data-clickable="true" tabindex="0" role="button">
+          <div class="card-head">
+            <h2>Regional On-Time Performance</h2>
+            <span class="pill">Updated 15s</span>
+          </div>
+          <div id="regionalBars" class="bars" aria-label="Regional performance bars"></div>
+        </article>
+
+        <article class="card exception-card stagger" data-clickable="true" tabindex="0" role="button">
+          <div class="card-head">
+            <h2>Open Exceptions Queue</h2>
+            <span class="pill attention" id="queueStatus">Needs review</span>
+          </div>
+          <ul id="exceptionList" class="exceptions-list"></ul>
+        </article>
+      </section>
+    </main>
+
+    <footer class="footer fade-in-delay">Made with candy and Copilot</footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
