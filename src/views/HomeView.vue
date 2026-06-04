@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 type Region = {
   name: string
@@ -40,6 +41,8 @@ const exceptions = ref<ExceptionItem[]>([
   { id: 'EX-9110', lane: 'SEA -> DEN', issue: 'Weather delay', ageHours: 2, priority: 'Low' },
 ])
 
+const router = useRouter()
+
 const themeLabel = computed(() => (isDark.value ? 'Switch to Light' : 'Switch to Dark'))
 
 const onTimePath = computed(() => {
@@ -67,6 +70,10 @@ function applyTheme() {
 function toggleTheme() {
   isDark.value = !isDark.value
   applyTheme()
+}
+
+function openRegionalPerformance() {
+  router.push({ name: 'regional-performance' })
 }
 
 function jitter(value: number, minDelta: number, maxDelta: number) {
@@ -194,7 +201,14 @@ onUnmounted(() => {
         </svg>
       </article>
 
-      <article class="card clickable">
+      <article
+        class="card clickable"
+        role="button"
+        tabindex="0"
+        @click="openRegionalPerformance"
+        @keydown.enter="openRegionalPerformance"
+        @keydown.space.prevent="openRegionalPerformance"
+      >
         <div class="card-header">
           <h2>Regional Performance</h2>
           <span>By on-time rate</span>
