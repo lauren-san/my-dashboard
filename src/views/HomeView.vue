@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import MetricCard from '../components/MetricCard.vue'
+import ProfileCard from '../components/ProfileCard.vue'
 
 type Region = {
   name: string
@@ -107,6 +108,15 @@ const metrics = computed<MetricCardItem[]>(() => [
   },
 ])
 
+const operationsLead = {
+  name: 'Morgan Tate',
+  avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=240&q=80',
+  role: 'VP of Operations',
+  clients: 84,
+  projects: 12,
+  tasks: 27,
+}
+
 const onTimePath = computed(() => {
   const values = onTimeSeries.value
   const max = 98
@@ -198,6 +208,19 @@ onUnmounted(() => {
         {{ themeLabel }}
       </v-btn>
     </v-app-bar>
+
+    <v-row class="mt-3 mb-1">
+      <v-col cols="12" lg="6">
+        <ProfileCard
+          :name="operationsLead.name"
+          :avatar="operationsLead.avatar"
+          :role="operationsLead.role"
+          :clients="operationsLead.clients"
+          :projects="operationsLead.projects"
+          :tasks="operationsLead.tasks"
+        />
+      </v-col>
+    </v-row>
 
     <v-row>
       <v-col v-for="metric in metrics" :key="metric.title" cols="12" sm="6" md="3">
@@ -324,6 +347,7 @@ onUnmounted(() => {
           </v-list>
         </v-card>
       </v-col>
+
     </v-row>
   </v-container>
 </template>
