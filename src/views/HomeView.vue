@@ -2,8 +2,23 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
+import { Bar, Line } from 'vue-chartjs'
+import {
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
+  LineElement,
+  LinearScale,
+  PointElement,
+  BarElement,
+  Title,
+  Tooltip,
+} from 'chart.js'
 import MetricCard from '../components/MetricCard.vue'
 import ProfileCard from '../components/ProfileCard.vue'
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
 type Region = {
   name: string
@@ -117,21 +132,104 @@ const operationsLead = {
   tasks: 27,
 }
 
-const onTimePath = computed(() => {
-  const values = onTimeSeries.value
-  const max = 98
-  const min = 93
-  return values
-    .map((value, index) => {
-      const x = (index / (values.length - 1)) * 100
-      const normalized = (value - min) / (max - min)
-      const y = 100 - normalized * 100
-      return `${index === 0 ? 'M' : 'L'} ${x} ${y}`
-    })
-    .join(' ')
+const chartLabels = computed(() => volumeSeries.value.map((_, index) => `T${index + 1}`))
+
+const volumeChartData = computed(() => {
+  const barColor = isDark.value ? 'rgba(111, 134, 255, 0.85)' : 'rgba(14, 168, 126, 0.85)'
+  const borderColor = isDark.value ? 'rgba(140, 91, 255, 1)' : 'rgba(14, 140, 122, 1)'
+
+  return {
+    labels: chartLabels.value,
+    datasets: [
+      {
+        label: 'Loads',
+        data: volumeSeries.value,
+        backgroundColor: barColor,
+        borderColor,
+        borderWidth: 1.2,
+        borderRadius: 8,
+        borderSkipped: false,
+        maxBarThickness: 28,
+      },
+    ],
+  }
 })
 
-const onTimeAreaPath = computed(() => `${onTimePath.value} L 100 100 L 0 100 Z`)
+const volumeChartOptions = computed(() => {
+  const tickColor = isDark.value ? '#c8d0f6' : '#2d5650'
+  const gridColor = isDark.value ? 'rgba(200, 208, 246, 0.16)' : 'rgba(45, 86, 80, 0.12)'
+
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+    },
+    scales: {
+      x: {
+        ticks: { color: tickColor },
+        grid: { color: gridColor, drawBorder: false },
+      },
+      y: {
+        beginAtZero: true,
+        ticks: { color: tickColor },
+        grid: { color: gridColor, drawBorder: false },
+      },
+    },
+  }
+})
+
+const onTimeChartData = computed(() => {
+  const lineColor = isDark.value ? 'rgba(140, 91, 255, 1)' : 'rgba(14, 140, 122, 1)'
+  const pointColor = isDark.value ? 'rgba(111, 134, 255, 1)' : 'rgba(14, 168, 126, 1)'
+  const fillColor = isDark.value ? 'rgba(140, 91, 255, 0.22)' : 'rgba(14, 168, 126, 0.2)'
+
+  return {
+    labels: chartLabels.value,
+    datasets: [
+      {
+        label: 'On-Time %',
+        data: onTimeSeries.value,
+        borderColor: lineColor,
+        pointBackgroundColor: pointColor,
+        pointBorderColor: pointColor,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        tension: 0.35,
+        fill: true,
+        backgroundColor: fillColor,
+      },
+    ],
+  }
+})
+
+const onTimeChartOptions = computed(() => {
+  const tickColor = isDark.value ? '#c8d0f6' : '#2d5650'
+  const gridColor = isDark.value ? 'rgba(200, 208, 246, 0.16)' : 'rgba(45, 86, 80, 0.12)'
+
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+    },
+    scales: {
+      x: {
+        ticks: { color: tickColor },
+        grid: { color: gridColor, drawBorder: false },
+      },
+      y: {
+        min: 93,
+        max: 99,
+        ticks: {
+          color: tickColor,
+          callback: (value: string | number) => `${value}%`,
+        },
+        grid: { color: gridColor, drawBorder: false },
+      },
+    },
+  }
+})
 
 let timer: number | undefined
 
@@ -243,23 +341,9 @@ onUnmounted(() => {
             <v-chip size="small" color="primary" variant="outlined">Last 12 intervals</v-chip>
           </v-card-title>
           <v-card-text>
-            <v-list density="compact" lines="one">
-              <v-list-item v-for="(bar, index) in volumeSeries" :key="index">
-                <template #prepend>
-                  <v-chip size="x-small" color="primary" variant="tonal">{{ index + 1 }}</v-chip>
-                </template>
-                <v-progress-linear
-                  :model-value="(bar / 140) * 100"
-                  color="primary"
-                  rounded
-                  rounded-bar
-                  height="10"
-                />
-                <template #append>
-                  <span class="text-body-2">{{ bar }}</span>
-                </template>
-              </v-list-item>
-            </v-list>
+            <div style="height: 260px">
+              <Bar :data="volumeChartData" :options="volumeChartOptions" />
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -271,23 +355,9 @@ onUnmounted(() => {
             <v-chip size="small" color="secondary" variant="outlined">Target 96%+</v-chip>
           </v-card-title>
           <v-card-text>
-            <v-list density="compact" lines="one">
-              <v-list-item v-for="(value, index) in onTimeSeries" :key="index">
-                <template #prepend>
-                  <v-chip size="x-small" color="secondary" variant="tonal">{{ index + 1 }}</v-chip>
-                </template>
-                <v-progress-linear
-                  :model-value="(value / 100) * 100"
-                  color="secondary"
-                  rounded
-                  rounded-bar
-                  height="10"
-                />
-                <template #append>
-                  <span class="text-body-2">{{ value.toFixed(1) }}%</span>
-                </template>
-              </v-list-item>
-            </v-list>
+            <div style="height: 260px">
+              <Line :data="onTimeChartData" :options="onTimeChartOptions" />
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
