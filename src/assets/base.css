@@ -1,74 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap');
 
-:root,
-[data-theme='dark'] {
-  --bg-main: #0a0f24;
-  --bg-accent: #16213f;
-  --bg-overlay: #251352;
-  --text-main: #eef1ff;
-  --text-muted: #b6bcdf;
-  --accent-a: #5c78ff;
-  --accent-b: #7b45d6;
-  --card-grad-start: rgba(29, 35, 79, 0.94);
-  --card-grad-end: rgba(21, 27, 58, 0.9);
-  --card-elevated: rgba(62, 73, 128, 0.16);
-  --card-border: rgba(110, 124, 201, 0.26);
-  --card-border-hover: rgba(146, 164, 255, 0.5);
-  --btn-bg: rgba(93, 110, 214, 0.2);
-  --btn-bg-hover: rgba(93, 110, 214, 0.35);
-  --btn-border: rgba(132, 147, 226, 0.35);
-  --btn-border-hover: rgba(166, 179, 244, 0.75);
-  --btn-text: #ecf0ff;
-  --pill-bg: rgba(104, 132, 255, 0.18);
-  --pill-border: rgba(151, 168, 255, 0.5);
-  --track-bg: rgba(141, 153, 212, 0.2);
-  --chart-start: #6d8dff;
-  --chart-end: #9d5df8;
-}
-
-[data-theme='light'] {
-  --bg-main: #e6fffb;
-  --bg-accent: #d0f5ee;
-  --bg-overlay: #c7efe4;
-  --text-main: #0d3230;
-  --text-muted: #366665;
-  --accent-a: #00a885;
-  --accent-b: #0b937d;
-  --card-grad-start: rgba(255, 255, 255, 0.92);
-  --card-grad-end: rgba(235, 255, 250, 0.9);
-  --card-elevated: rgba(0, 143, 116, 0.06);
-  --card-border: rgba(0, 152, 125, 0.18);
-  --card-border-hover: rgba(3, 168, 139, 0.42);
-  --btn-bg: rgba(4, 165, 134, 0.14);
-  --btn-bg-hover: rgba(4, 165, 134, 0.24);
-  --btn-border: rgba(2, 151, 123, 0.32);
-  --btn-border-hover: rgba(2, 151, 123, 0.55);
-  --btn-text: #0a4a42;
-  --pill-bg: rgba(4, 165, 134, 0.12);
-  --pill-border: rgba(2, 151, 123, 0.36);
-  --track-bg: rgba(7, 138, 114, 0.12);
-  --chart-start: #00a67f;
-  --chart-end: #14c6a1;
-}
-
 *,
 *::before,
 *::after {
   box-sizing: border-box;
-  margin: 0;
 }
 
 body {
   min-height: 100vh;
-  color: var(--text-main);
-  background:
-    radial-gradient(circle at 5% 5%, var(--bg-overlay), transparent 38%),
-    radial-gradient(circle at 85% 12%, var(--bg-accent), transparent 44%),
-    var(--bg-main);
-  transition: color 220ms ease, background-color 220ms ease;
+  margin: 0;
   line-height: 1.6;
   font-family: 'Lato', sans-serif;
-  font-size: 15px;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

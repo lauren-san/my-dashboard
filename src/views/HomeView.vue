@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useTheme } from 'vuetify'
+import MetricCard from '../components/MetricCard.vue'
 
 type Region = {
   name: string
@@ -16,8 +18,21 @@ type ExceptionItem = {
   priority: 'High' | 'Medium' | 'Low'
 }
 
-const isDark = ref(true)
+type MetricCardItem = {
+  title: string
+  value: string | number
+  change?: string | number
+  changeType: 'increase' | 'decrease' | 'neutral'
+  icon?: string
+  description?: string
+}
+
 const updatedAt = ref(new Date())
+
+const shipmentVolumeBaseline = 1248
+const onTimeRateBaseline = 96.4
+const openExceptionsBaseline = 37
+const avgTransitDaysBaseline = 3.2
 
 const shipmentVolume = ref(1248)
 const onTimeRate = ref(96.4)
@@ -42,8 +57,55 @@ const exceptions = ref<ExceptionItem[]>([
 ])
 
 const router = useRouter()
+const theme = useTheme()
 
-const themeLabel = computed(() => (isDark.value ? 'Switch to Light' : 'Switch to Dark'))
+const isDark = computed(() => theme.global.name.value === 'dark')
+const themeLabel = computed(() => (isDark.value ? 'Light mode' : 'Dark mode'))
+
+const metrics = computed<MetricCardItem[]>(() => [
+  {
+    title: 'Shipment Volume',
+    value: shipmentVolume.value.toLocaleString(),
+    change: `${shipmentVolume.value >= shipmentVolumeBaseline ? '+' : ''}${shipmentVolume.value - shipmentVolumeBaseline}`,
+    changeType: shipmentVolume.value >= shipmentVolumeBaseline ? 'increase' : 'decrease',
+    icon: 'mdi-truck-fast-outline',
+    description: 'Loads in active planning horizon',
+  },
+  {
+    title: 'On-Time Delivery',
+    value: `${onTimeRate.value.toFixed(1)}%`,
+    change: `${onTimeRate.value >= onTimeRateBaseline ? '+' : ''}${(onTimeRate.value - onTimeRateBaseline).toFixed(1)} pts`,
+    changeType: onTimeRate.value >= onTimeRateBaseline ? 'increase' : 'decrease',
+    icon: 'mdi-timer-check-outline',
+    description: 'Rolling 24-hour performance',
+  },
+  {
+    title: 'Open Exceptions',
+    value: openExceptions.value,
+    change: `${openExceptions.value - openExceptionsBaseline > 0 ? '+' : ''}${openExceptions.value - openExceptionsBaseline}`,
+    changeType:
+      openExceptions.value === openExceptionsBaseline
+        ? 'neutral'
+        : openExceptions.value < openExceptionsBaseline
+          ? 'increase'
+          : 'decrease',
+    icon: 'mdi-alert-circle-outline',
+    description: 'Loads requiring intervention',
+  },
+  {
+    title: 'Average Transit Time',
+    value: `${avgTransitDays.value.toFixed(2)} days`,
+    change: `${avgTransitDays.value <= avgTransitDaysBaseline ? '' : '+'}${(avgTransitDays.value - avgTransitDaysBaseline).toFixed(2)} days`,
+    changeType:
+      avgTransitDays.value === avgTransitDaysBaseline
+        ? 'neutral'
+        : avgTransitDays.value < avgTransitDaysBaseline
+          ? 'increase'
+          : 'decrease',
+    icon: 'mdi-clock-fast',
+    description: 'Door-to-door network average',
+  },
+])
 
 const onTimePath = computed(() => {
   const values = onTimeSeries.value
@@ -63,13 +125,8 @@ const onTimeAreaPath = computed(() => `${onTimePath.value} L 100 100 L 0 100 Z`)
 
 let timer: number | undefined
 
-function applyTheme() {
-  document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
-}
-
 function toggleTheme() {
-  isDark.value = !isDark.value
-  applyTheme()
+  theme.global.name.value = isDark.value ? 'light' : 'dark'
 }
 
 function openRegionalPerformance() {
@@ -110,7 +167,6 @@ function tick() {
 }
 
 onMounted(() => {
-  applyTheme()
   timer = window.setInterval(tick, 2500)
 })
 
@@ -122,415 +178,152 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="dashboard-shell">
-    <section class="hero card">
-      <div class="hero-row">
-        <div class="brand-block">
-          <div class="logo" aria-hidden="true">FF</div>
-          <div>
-            <h1>FastForward Logistics Dashboard</h1>
-            <p>
-              Leadership snapshot of shipment volume, on-time delivery, regional execution, and open
-              operational exceptions.
-            </p>
-          </div>
+  <v-container fluid class="py-6 px-4 px-md-8">
+    <v-app-bar rounded="lg" class="mb-5 px-4 px-md-6 py-3" elevation="2">
+      <template #prepend>
+        <v-avatar color="primary" rounded="lg">FF</v-avatar>
+      </template>
+      <v-app-bar-title>
+        FastForward Logistics Dashboard
+        <div class="text-caption text-medium-emphasis">
+          Leadership snapshot of shipment volume, on-time delivery, regional execution, and open
+          operational exceptions.
         </div>
+      </v-app-bar-title>
+      <v-chip size="small" color="secondary" class="mr-3" prepend-icon="mdi-update">
+        {{ updatedAt.toLocaleTimeString() }}
+      </v-chip>
+      <v-btn variant="tonal" color="primary" @click="toggleTheme">
+        <v-icon start>{{ isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night' }}</v-icon>
+        {{ themeLabel }}
+      </v-btn>
+    </v-app-bar>
 
-        <button class="theme-toggle" type="button" @click="toggleTheme">{{ themeLabel }}</button>
-      </div>
-      <div class="live-pill">Live updates · {{ updatedAt.toLocaleTimeString() }}</div>
-    </section>
+    <v-row>
+      <v-col v-for="metric in metrics" :key="metric.title" cols="12" sm="6" md="3">
+        <MetricCard
+          :title="metric.title"
+          :value="metric.value"
+          :change="metric.change"
+          :change-type="metric.changeType"
+          :icon="metric.icon"
+          :description="metric.description"
+        />
+      </v-col>
+    </v-row>
 
-    <section class="kpi-grid">
-      <article class="card clickable">
-        <span>Shipment Volume</span>
-        <strong>{{ shipmentVolume.toLocaleString() }}</strong>
-        <small>Loads in active planning horizon</small>
-      </article>
-      <article class="card clickable">
-        <span>On-Time Delivery</span>
-        <strong>{{ onTimeRate.toFixed(1) }}%</strong>
-        <small>Rolling 24-hour performance</small>
-      </article>
-      <article class="card clickable">
-        <span>Open Exceptions</span>
-        <strong>{{ openExceptions }}</strong>
-        <small>Loads requiring intervention</small>
-      </article>
-      <article class="card clickable">
-        <span>Average Transit Time</span>
-        <strong>{{ avgTransitDays.toFixed(2) }} days</strong>
-        <small>Door-to-door network average</small>
-      </article>
-    </section>
+    <v-row class="mt-1">
+      <v-col cols="12" lg="6">
+        <v-card elevation="2">
+          <v-card-title class="d-flex align-center justify-space-between">
+            Shipment Volume Trend
+            <v-chip size="small" color="primary" variant="outlined">Last 12 intervals</v-chip>
+          </v-card-title>
+          <v-card-text>
+            <v-list density="compact" lines="one">
+              <v-list-item v-for="(bar, index) in volumeSeries" :key="index">
+                <template #prepend>
+                  <v-chip size="x-small" color="primary" variant="tonal">{{ index + 1 }}</v-chip>
+                </template>
+                <v-progress-linear
+                  :model-value="(bar / 140) * 100"
+                  color="primary"
+                  rounded
+                  rounded-bar
+                  height="10"
+                />
+                <template #append>
+                  <span class="text-body-2">{{ bar }}</span>
+                </template>
+              </v-list-item>
+            </v-list>
+          </v-card-text>
+        </v-card>
+      </v-col>
 
-    <section class="main-grid">
-      <article class="card chart-card clickable">
-        <div class="card-header">
-          <h2>Shipment Volume Trend</h2>
-          <span>Last 12 intervals</span>
-        </div>
-        <div class="bar-chart" role="img" aria-label="Shipment volume bar chart">
-          <div
-            v-for="(bar, index) in volumeSeries"
-            :key="index"
-            class="bar"
-            :style="{ height: `${(bar / 140) * 100}%` }"
-          ></div>
-        </div>
-      </article>
+      <v-col cols="12" lg="6">
+        <v-card elevation="2">
+          <v-card-title class="d-flex align-center justify-space-between">
+            On-Time Delivery Curve
+            <v-chip size="small" color="secondary" variant="outlined">Target 96%+</v-chip>
+          </v-card-title>
+          <v-card-text>
+            <v-list density="compact" lines="one">
+              <v-list-item v-for="(value, index) in onTimeSeries" :key="index">
+                <template #prepend>
+                  <v-chip size="x-small" color="secondary" variant="tonal">{{ index + 1 }}</v-chip>
+                </template>
+                <v-progress-linear
+                  :model-value="(value / 100) * 100"
+                  color="secondary"
+                  rounded
+                  rounded-bar
+                  height="10"
+                />
+                <template #append>
+                  <span class="text-body-2">{{ value.toFixed(1) }}%</span>
+                </template>
+              </v-list-item>
+            </v-list>
+          </v-card-text>
+        </v-card>
+      </v-col>
 
-      <article class="card chart-card clickable">
-        <div class="card-header">
-          <h2>On-Time Delivery Curve</h2>
-          <span>Target 96%+</span>
-        </div>
-        <svg viewBox="0 0 100 100" class="line-chart" role="img" aria-label="On-time delivery line chart">
-          <defs>
-            <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="var(--chart-start)" stop-opacity="0.55" />
-              <stop offset="100%" stop-color="var(--chart-end)" stop-opacity="0.05" />
-            </linearGradient>
-            <linearGradient id="strokeGradient" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="var(--chart-start)" />
-              <stop offset="100%" stop-color="var(--chart-end)" />
-            </linearGradient>
-          </defs>
-          <path :d="onTimeAreaPath" fill="url(#areaGradient)" />
-          <path :d="onTimePath" fill="none" stroke="url(#strokeGradient)" stroke-width="2.2" />
-        </svg>
-      </article>
+      <v-col cols="12" lg="6">
+        <v-card elevation="2">
+          <v-card-title class="d-flex align-center justify-space-between">
+            Regional Performance
+            <v-btn size="small" color="primary" variant="tonal" @click="openRegionalPerformance">
+              <v-icon start>mdi-map-marker-radius</v-icon>
+              Open Page
+            </v-btn>
+          </v-card-title>
+          <v-card-text>
+            <v-list density="comfortable">
+              <v-list-item v-for="region in regions" :key="region.name">
+                <v-list-item-title>{{ region.name }}</v-list-item-title>
+                <v-list-item-subtitle>{{ region.shipments }} loads</v-list-item-subtitle>
+                <v-progress-linear
+                  class="mt-2"
+                  :model-value="region.onTime"
+                  color="success"
+                  rounded
+                  rounded-bar
+                  height="10"
+                />
+                <v-chip class="mt-2" size="small" color="success" variant="outlined">
+                  {{ region.onTime.toFixed(1) }}% on-time
+                </v-chip>
+              </v-list-item>
+            </v-list>
+          </v-card-text>
+        </v-card>
+      </v-col>
 
-      <article
-        class="card clickable"
-        role="button"
-        tabindex="0"
-        @click="openRegionalPerformance"
-        @keydown.enter="openRegionalPerformance"
-        @keydown.space.prevent="openRegionalPerformance"
-      >
-        <div class="card-header">
-          <h2>Regional Performance</h2>
-          <span>By on-time rate</span>
-        </div>
-        <ul class="region-list">
-          <li v-for="region in regions" :key="region.name">
-            <div class="region-meta">
-              <strong>{{ region.name }}</strong>
-              <span>{{ region.shipments }} loads</span>
-            </div>
-            <div class="progress-track">
-              <div class="progress-fill" :style="{ width: `${region.onTime}%` }"></div>
-            </div>
-            <small>{{ region.onTime.toFixed(1) }}% on-time</small>
-          </li>
-        </ul>
-      </article>
-
-      <article class="card clickable">
-        <div class="card-header">
-          <h2>Open Exceptions</h2>
-          <span>Highest impact first</span>
-        </div>
-        <ul class="exception-list">
-          <li v-for="item in exceptions" :key="item.id">
-            <div>
-              <strong>{{ item.id }} · {{ item.lane }}</strong>
-              <p>{{ item.issue }}</p>
-            </div>
-            <div class="exception-meta">
-              <span class="priority" :class="item.priority.toLowerCase()">{{ item.priority }}</span>
-              <small>{{ item.ageHours }}h</small>
-            </div>
-          </li>
-        </ul>
-      </article>
-    </section>
-  </main>
+      <v-col cols="12" lg="6">
+        <v-card elevation="2">
+          <v-card-title>Open Exceptions</v-card-title>
+          <v-card-subtitle>Highest impact first</v-card-subtitle>
+          <v-list density="comfortable">
+            <v-list-item v-for="item in exceptions" :key="item.id">
+              <v-list-item-title>{{ item.id }} · {{ item.lane }}</v-list-item-title>
+              <v-list-item-subtitle>{{ item.issue }}</v-list-item-subtitle>
+              <template #append>
+                <div class="d-flex align-center ga-2">
+                  <v-chip
+                    size="small"
+                    :color="item.priority === 'High' ? 'error' : item.priority === 'Medium' ? 'warning' : 'success'"
+                    variant="tonal"
+                  >
+                    {{ item.priority }}
+                  </v-chip>
+                  <v-chip size="small" variant="outlined">{{ item.ageHours }}h</v-chip>
+                </div>
+              </template>
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
-
-<style scoped>
-.dashboard-shell {
-  width: min(1200px, 100%);
-  margin: 0 auto;
-  padding: 2rem 1rem 2.25rem;
-  display: grid;
-  gap: 1rem;
-}
-
-.card {
-  background: linear-gradient(145deg, var(--card-grad-start), var(--card-grad-end));
-  border: 1px solid var(--card-border);
-  border-radius: 16px;
-  padding: 1rem;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
-}
-
-.clickable {
-  transition:
-    transform 180ms ease,
-    box-shadow 180ms ease,
-    border-color 180ms ease;
-  cursor: pointer;
-}
-
-.clickable:hover {
-  transform: translateY(-4px);
-  border-color: var(--card-border-hover);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
-}
-
-.hero {
-  padding: 1.25rem;
-}
-
-.hero-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.brand-block {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.logo {
-  width: 54px;
-  height: 54px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  font-size: 1.1rem;
-  font-weight: 900;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  letter-spacing: 0.07em;
-}
-
-h1 {
-  font-size: clamp(1.2rem, 1rem + 1vw, 2rem);
-  font-weight: 900;
-  line-height: 1.2;
-}
-
-p {
-  margin-top: 0.45rem;
-  color: var(--text-muted);
-}
-
-.theme-toggle {
-  border: 1px solid var(--btn-border);
-  color: var(--btn-text);
-  background: var(--btn-bg);
-  border-radius: 12px;
-  padding: 0.6rem 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition:
-    transform 160ms ease,
-    background-color 160ms ease,
-    border-color 160ms ease;
-}
-
-.theme-toggle:hover {
-  transform: translateY(-2px);
-  border-color: var(--btn-border-hover);
-  background: var(--btn-bg-hover);
-}
-
-.live-pill {
-  margin-top: 0.8rem;
-  width: fit-content;
-  border-radius: 999px;
-  border: 1px solid var(--pill-border);
-  background: var(--pill-bg);
-  padding: 0.3rem 0.65rem;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.kpi-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.kpi-grid article span {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-}
-
-.kpi-grid article strong {
-  display: block;
-  margin-top: 0.35rem;
-  font-size: clamp(1.3rem, 0.9rem + 1.2vw, 1.9rem);
-  font-weight: 900;
-}
-
-.kpi-grid article small {
-  color: var(--text-muted);
-}
-
-.main-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 1rem;
-  margin-bottom: 0.8rem;
-}
-
-.card-header h2 {
-  font-size: 1rem;
-  font-weight: 800;
-}
-
-.card-header span {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
-
-.chart-card {
-  min-height: 255px;
-}
-
-.bar-chart {
-  height: 180px;
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  align-items: end;
-  gap: 0.45rem;
-}
-
-.bar {
-  border-radius: 6px 6px 3px 3px;
-  background: linear-gradient(180deg, var(--chart-start), var(--chart-end));
-  transition: height 650ms ease;
-}
-
-.line-chart {
-  width: 100%;
-  height: 180px;
-  overflow: visible;
-}
-
-.region-list,
-.exception-list {
-  list-style: none;
-  display: grid;
-  gap: 0.75rem;
-  padding: 0;
-}
-
-.region-meta {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.35rem;
-}
-
-.region-meta span {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
-
-.progress-track {
-  background: var(--track-bg);
-  border-radius: 999px;
-  height: 10px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--chart-start), var(--chart-end));
-  transition: width 650ms ease;
-}
-
-.region-list small {
-  color: var(--text-muted);
-}
-
-.exception-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  border: 1px solid var(--card-border);
-  background: var(--card-elevated);
-  border-radius: 12px;
-  padding: 0.7rem 0.75rem;
-}
-
-.exception-list p {
-  margin: 0.2rem 0 0;
-  font-size: 0.85rem;
-}
-
-.exception-meta {
-  display: grid;
-  gap: 0.3rem;
-  justify-items: end;
-}
-
-.priority {
-  font-size: 0.72rem;
-  font-weight: 800;
-  border-radius: 999px;
-  padding: 0.14rem 0.48rem;
-  border: 1px solid transparent;
-}
-
-.priority.high {
-  color: #ffd2d2;
-  border-color: #ff7a7a;
-  background: rgba(255, 77, 109, 0.2);
-}
-
-.priority.medium {
-  color: #ffecc1;
-  border-color: #ffc46b;
-  background: rgba(255, 169, 71, 0.2);
-}
-
-.priority.low {
-  color: #cbf2da;
-  border-color: #7bd5a1;
-  background: rgba(56, 199, 131, 0.2);
-}
-
-@media (max-width: 1024px) {
-  .kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .main-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .dashboard-shell {
-    padding: 1rem 0.75rem 1.25rem;
-  }
-
-  .hero-row {
-    flex-direction: column;
-  }
-
-  .brand-block {
-    align-items: flex-start;
-  }
-
-  .kpi-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
