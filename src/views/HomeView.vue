@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
 import { useTheme } from 'vuetify'
 import { Bar, Line } from 'vue-chartjs'
 import {
@@ -16,202 +15,228 @@ import {
   Tooltip,
 } from 'chart.js'
 import MetricCard from '../components/MetricCard.vue'
-import ProfileCard from '../components/ProfileCard.vue'
+import metricsData from '../data/metrics.json'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
-type Region = {
-  name: string
-  onTime: number
-  shipments: number
+type MetricRow = {
+  month: string
+  revenue: number
+  visitors: number
+  conversions: number
+  orders: number
 }
 
-type ExceptionItem = {
-  id: string
-  lane: string
-  issue: string
-  ageHours: number
-  priority: 'High' | 'Medium' | 'Low'
-}
+type ChangeType = 'increase' | 'decrease' | 'neutral'
 
-type MetricCardItem = {
+type SummaryMetric = {
   title: string
   value: string | number
-  change?: string | number
-  changeType: 'increase' | 'decrease' | 'neutral'
-  icon?: string
-  description?: string
+  change: string
+  changeType: ChangeType
+  icon: string
+  description: string
 }
 
-const updatedAt = ref(new Date())
-
-const shipmentVolumeBaseline = 1248
-const onTimeRateBaseline = 96.4
-const openExceptionsBaseline = 37
-const avgTransitDaysBaseline = 3.2
-
-const shipmentVolume = ref(1248)
-const onTimeRate = ref(96.4)
-const openExceptions = ref(37)
-const avgTransitDays = ref(3.2)
-
-const volumeSeries = ref([64, 58, 71, 79, 74, 88, 94, 103, 96, 112, 118, 126])
-const onTimeSeries = ref([94.4, 94.8, 95.1, 95.7, 96.1, 95.9, 96.3, 96.8, 96.4, 96.9, 97.1, 96.7])
-
-const regions = ref<Region[]>([
-  { name: 'Northeast', onTime: 97.2, shipments: 282 },
-  { name: 'Southeast', onTime: 95.8, shipments: 314 },
-  { name: 'Central', onTime: 96.6, shipments: 356 },
-  { name: 'West', onTime: 94.9, shipments: 296 },
-])
-
-const exceptions = ref<ExceptionItem[]>([
-  { id: 'EX-9012', lane: 'ATL -> ORD', issue: 'Dock congestion', ageHours: 5, priority: 'High' },
-  { id: 'EX-9044', lane: 'LAX -> PHX', issue: 'Carrier reassignment', ageHours: 3, priority: 'Medium' },
-  { id: 'EX-9081', lane: 'DAL -> MIA', issue: 'Customs doc hold', ageHours: 7, priority: 'High' },
-  { id: 'EX-9110', lane: 'SEA -> DEN', issue: 'Weather delay', ageHours: 2, priority: 'Low' },
-])
-
-const router = useRouter()
 const theme = useTheme()
-
+const selectedMonth = defineModel<string>('selectedMonth', { default: 'ALL' })
 const isDark = computed(() => theme.global.name.value === 'dark')
 const themeLabel = computed(() => (isDark.value ? 'Light mode' : 'Dark mode'))
 
-const metrics = computed<MetricCardItem[]>(() => [
-  {
-    title: 'Shipment Volume',
-    value: shipmentVolume.value.toLocaleString(),
-    change: `${shipmentVolume.value >= shipmentVolumeBaseline ? '+' : ''}${shipmentVolume.value - shipmentVolumeBaseline}`,
-    changeType: shipmentVolume.value >= shipmentVolumeBaseline ? 'increase' : 'decrease',
-    icon: 'mdi-truck-fast-outline',
-    description: 'Loads in active planning horizon',
-  },
-  {
-    title: 'On-Time Delivery',
-    value: `${onTimeRate.value.toFixed(1)}%`,
-    change: `${onTimeRate.value >= onTimeRateBaseline ? '+' : ''}${(onTimeRate.value - onTimeRateBaseline).toFixed(1)} pts`,
-    changeType: onTimeRate.value >= onTimeRateBaseline ? 'increase' : 'decrease',
-    icon: 'mdi-timer-check-outline',
-    description: 'Rolling 24-hour performance',
-  },
-  {
-    title: 'Open Exceptions',
-    value: openExceptions.value,
-    change: `${openExceptions.value - openExceptionsBaseline > 0 ? '+' : ''}${openExceptions.value - openExceptionsBaseline}`,
-    changeType:
-      openExceptions.value === openExceptionsBaseline
-        ? 'neutral'
-        : openExceptions.value < openExceptionsBaseline
-          ? 'increase'
-          : 'decrease',
-    icon: 'mdi-alert-circle-outline',
-    description: 'Loads requiring intervention',
-  },
-  {
-    title: 'Average Transit Time',
-    value: `${avgTransitDays.value.toFixed(2)} days`,
-    change: `${avgTransitDays.value <= avgTransitDaysBaseline ? '' : '+'}${(avgTransitDays.value - avgTransitDaysBaseline).toFixed(2)} days`,
-    changeType:
-      avgTransitDays.value === avgTransitDaysBaseline
-        ? 'neutral'
-        : avgTransitDays.value < avgTransitDaysBaseline
-          ? 'increase'
-          : 'decrease',
-    icon: 'mdi-clock-fast',
-    description: 'Door-to-door network average',
-  },
+const rows = metricsData as MetricRow[]
+
+const monthOptions = computed(() => [
+  { title: 'All Months', value: 'ALL' },
+  ...rows.map((row) => ({
+    title: monthLabel(row.month),
+    value: row.month,
+  })),
 ])
 
-const operationsLead = {
-  name: 'Morgan Tate',
-  avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=240&q=80',
-  role: 'VP of Operations',
-  clients: 84,
-  projects: 12,
-  tasks: 27,
-}
+const filteredRows = computed(() => {
+  if (selectedMonth.value === 'ALL') {
+    return rows
+  }
 
-const chartLabels = computed(() => volumeSeries.value.map((_, index) => `T${index + 1}`))
+  return rows.filter((row) => row.month === selectedMonth.value)
+})
 
-const volumeChartData = computed(() => {
-  const barColor = isDark.value ? 'rgba(111, 134, 255, 0.85)' : 'rgba(14, 168, 126, 0.85)'
-  const borderColor = isDark.value ? 'rgba(140, 91, 255, 1)' : 'rgba(14, 140, 122, 1)'
+const selectedMonthIndex = computed(() => rows.findIndex((row) => row.month === selectedMonth.value))
+
+const currentRow = computed(() => {
+  if (selectedMonth.value === 'ALL') {
+    return rows[rows.length - 1]
+  }
+
+  return rows.find((row) => row.month === selectedMonth.value)
+})
+
+const previousRow = computed(() => {
+  if (!currentRow.value) {
+    return undefined
+  }
+
+  const currentIndex = rows.findIndex((row) => row.month === currentRow.value?.month)
+  if (currentIndex <= 0) {
+    return undefined
+  }
+
+  return rows[currentIndex - 1]
+})
+
+const summaryMetrics = computed<SummaryMetric[]>(() => {
+  const totalRevenue = filteredRows.value.reduce((sum, row) => sum + row.revenue, 0)
+  const totalVisitors = filteredRows.value.reduce((sum, row) => sum + row.visitors, 0)
+  const totalOrders = filteredRows.value.reduce((sum, row) => sum + row.orders, 0)
+  const avgConversions =
+    filteredRows.value.reduce((sum, row) => sum + row.conversions, 0) / Math.max(filteredRows.value.length, 1)
+
+  const current = currentRow.value
+  const previous = previousRow.value
+
+  const revenueDiff = current && previous ? current.revenue - previous.revenue : 0
+  const visitorsDiff = current && previous ? current.visitors - previous.visitors : 0
+  const conversionsDiff = current && previous ? current.conversions - previous.conversions : 0
+  const ordersDiff = current && previous ? current.orders - previous.orders : 0
+
+  return [
+    {
+      title: 'Revenue',
+      value: formatCurrency(totalRevenue),
+      change: signedNumber(revenueDiff),
+      changeType: classifyTrend(revenueDiff),
+      icon: 'mdi-cash-multiple',
+      description: selectedMonth.value === 'ALL' ? 'Year total' : 'Selected month',
+    },
+    {
+      title: 'Visitors',
+      value: totalVisitors.toLocaleString(),
+      change: signedNumber(visitorsDiff),
+      changeType: classifyTrend(visitorsDiff),
+      icon: 'mdi-account-group-outline',
+      description: selectedMonth.value === 'ALL' ? 'Year total' : 'Selected month',
+    },
+    {
+      title: 'Conversions',
+      value: `${avgConversions.toFixed(2)}%`,
+      change: `${signedDecimal(conversionsDiff)} pts`,
+      changeType: classifyTrend(conversionsDiff),
+      icon: 'mdi-chart-line',
+      description: selectedMonth.value === 'ALL' ? 'Year average' : 'Selected month rate',
+    },
+    {
+      title: 'Orders',
+      value: totalOrders.toLocaleString(),
+      change: signedNumber(ordersDiff),
+      changeType: classifyTrend(ordersDiff),
+      icon: 'mdi-package-variant-closed',
+      description: selectedMonth.value === 'ALL' ? 'Year total' : 'Selected month',
+    },
+  ]
+})
+
+const chartLabels = computed(() => rows.map((row) => monthLabel(row.month, true)))
+
+const revenueChartData = computed(() => {
+  const defaultBarColor = isDarkTheme() ? 'rgba(111, 134, 255, 0.45)' : 'rgba(14, 168, 126, 0.45)'
+  const highlightBarColor = isDarkTheme() ? 'rgba(140, 91, 255, 0.95)' : 'rgba(14, 140, 122, 0.95)'
+  const borderColor = isDarkTheme() ? 'rgba(140, 91, 255, 1)' : 'rgba(14, 140, 122, 1)'
+
+  const backgroundColors = rows.map((_, index) => {
+    if (selectedMonth.value === 'ALL') {
+      return highlightBarColor
+    }
+
+    return index === selectedMonthIndex.value ? highlightBarColor : defaultBarColor
+  })
 
   return {
     labels: chartLabels.value,
     datasets: [
       {
-        label: 'Loads',
-        data: volumeSeries.value,
-        backgroundColor: barColor,
+        label: 'Revenue ($)',
+        data: rows.map((row) => row.revenue),
+        backgroundColor: backgroundColors,
         borderColor,
-        borderWidth: 1.2,
+        borderWidth: 1,
         borderRadius: 8,
         borderSkipped: false,
-        maxBarThickness: 28,
+        maxBarThickness: 34,
       },
     ],
   }
 })
 
-const volumeChartOptions = computed(() => {
-  const tickColor = isDark.value ? '#c8d0f6' : '#2d5650'
-  const gridColor = isDark.value ? 'rgba(200, 208, 246, 0.16)' : 'rgba(45, 86, 80, 0.12)'
+const visitorsChartData = computed(() => {
+  const lineColor = isDarkTheme() ? 'rgba(140, 91, 255, 1)' : 'rgba(14, 140, 122, 1)'
+  const defaultPointColor = isDarkTheme() ? 'rgba(111, 134, 255, 0.9)' : 'rgba(14, 168, 126, 0.9)'
+  const pointSizes = rows.map((_, index) => {
+    if (selectedMonth.value === 'ALL') {
+      return 3
+    }
 
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-    },
-    scales: {
-      x: {
-        ticks: { color: tickColor },
-        grid: { color: gridColor, drawBorder: false },
-      },
-      y: {
-        beginAtZero: true,
-        ticks: { color: tickColor },
-        grid: { color: gridColor, drawBorder: false },
-      },
-    },
-  }
-})
-
-const onTimeChartData = computed(() => {
-  const lineColor = isDark.value ? 'rgba(140, 91, 255, 1)' : 'rgba(14, 140, 122, 1)'
-  const pointColor = isDark.value ? 'rgba(111, 134, 255, 1)' : 'rgba(14, 168, 126, 1)'
-  const fillColor = isDark.value ? 'rgba(140, 91, 255, 0.22)' : 'rgba(14, 168, 126, 0.2)'
+    return index === selectedMonthIndex.value ? 8 : 2
+  })
 
   return {
     labels: chartLabels.value,
     datasets: [
       {
-        label: 'On-Time %',
-        data: onTimeSeries.value,
+        label: 'Visitors',
+        data: rows.map((row) => row.visitors),
         borderColor: lineColor,
-        pointBackgroundColor: pointColor,
-        pointBorderColor: pointColor,
-        pointRadius: 3,
+        pointBackgroundColor: defaultPointColor,
+        pointBorderColor: defaultPointColor,
+        pointRadius: pointSizes,
         pointHoverRadius: 5,
         tension: 0.35,
-        fill: true,
-        backgroundColor: fillColor,
+        fill: false,
       },
     ],
   }
 })
 
-const onTimeChartOptions = computed(() => {
-  const tickColor = isDark.value ? '#c8d0f6' : '#2d5650'
-  const gridColor = isDark.value ? 'rgba(200, 208, 246, 0.16)' : 'rgba(45, 86, 80, 0.12)'
+const conversionsChartData = computed(() => {
+  const lineColor = isDarkTheme() ? 'rgba(140, 91, 255, 1)' : 'rgba(14, 140, 122, 1)'
+  const fillColor = isDarkTheme() ? 'rgba(140, 91, 255, 0.22)' : 'rgba(14, 168, 126, 0.2)'
+  const pointSizes = rows.map((_, index) => {
+    if (selectedMonth.value === 'ALL') {
+      return 3
+    }
+
+    return index === selectedMonthIndex.value ? 8 : 2
+  })
+
+  return {
+    labels: chartLabels.value,
+    datasets: [
+      {
+        label: 'Conversions (%)',
+        data: rows.map((row) => row.conversions),
+        borderColor: lineColor,
+        backgroundColor: fillColor,
+        pointBackgroundColor: lineColor,
+        pointRadius: pointSizes,
+        tension: 0.35,
+        fill: true,
+      },
+    ],
+  }
+})
+
+const baseChartOptions = computed(() => {
+  const tickColor = isDarkTheme() ? '#c8d0f6' : '#2d5650'
+  const gridColor = isDarkTheme() ? 'rgba(200, 208, 246, 0.16)' : 'rgba(45, 86, 80, 0.12)'
 
   return {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false },
+      legend: {
+        labels: {
+          color: tickColor,
+        },
+      },
     },
     scales: {
       x: {
@@ -219,70 +244,93 @@ const onTimeChartOptions = computed(() => {
         grid: { color: gridColor, drawBorder: false },
       },
       y: {
-        min: 93,
-        max: 99,
-        ticks: {
-          color: tickColor,
-          callback: (value: string | number) => `${value}%`,
-        },
+        ticks: { color: tickColor },
         grid: { color: gridColor, drawBorder: false },
       },
     },
   }
 })
 
-let timer: number | undefined
+const revenueChartOptions = computed(() => ({
+  ...baseChartOptions.value,
+  plugins: {
+    ...baseChartOptions.value.plugins,
+    legend: { display: false },
+  },
+}))
+
+const visitorsChartOptions = computed(() => ({
+  ...baseChartOptions.value,
+  plugins: {
+    ...baseChartOptions.value.plugins,
+    legend: { display: false },
+  },
+}))
+
+const conversionsChartOptions = computed(() => ({
+  ...baseChartOptions.value,
+  plugins: {
+    ...baseChartOptions.value.plugins,
+    legend: { display: false },
+  },
+  scales: {
+    ...baseChartOptions.value.scales,
+    y: {
+      ...baseChartOptions.value.scales.y,
+      min: 2,
+      max: 5,
+      ticks: {
+        color: isDarkTheme() ? '#c8d0f6' : '#2d5650',
+        callback: (value: string | number) => `${value}%`,
+      },
+    },
+  },
+}))
+
+function monthLabel(month: string, short = false) {
+  const date = new Date(`${month}-01T00:00:00`)
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: short ? 'short' : 'long',
+    year: short ? undefined : 'numeric',
+  }).format(date)
+}
+
+function classifyTrend(delta: number): ChangeType {
+  if (delta > 0) {
+    return 'increase'
+  }
+
+  if (delta < 0) {
+    return 'decrease'
+  }
+
+  return 'neutral'
+}
+
+function signedNumber(value: number) {
+  return `${value > 0 ? '+' : ''}${Math.round(value).toLocaleString()}`
+}
+
+function signedDecimal(value: number) {
+  return `${value > 0 ? '+' : ''}${value.toFixed(2)}`
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+function isDarkTheme() {
+  return theme.global.name.value === 'dark'
+}
 
 function toggleTheme() {
   theme.global.name.value = isDark.value ? 'light' : 'dark'
 }
-
-function openRegionalPerformance() {
-  router.push({ name: 'regional-performance' })
-}
-
-function jitter(value: number, minDelta: number, maxDelta: number) {
-  const direction = Math.random() > 0.5 ? 1 : -1
-  const delta = minDelta + Math.random() * (maxDelta - minDelta)
-  return value + direction * delta
-}
-
-function tick() {
-  updatedAt.value = new Date()
-  shipmentVolume.value = Math.max(980, Math.round(jitter(shipmentVolume.value, 6, 18)))
-  onTimeRate.value = Math.min(99.2, Math.max(92.4, Number(jitter(onTimeRate.value, 0.1, 0.5).toFixed(1))))
-  openExceptions.value = Math.max(12, Math.round(jitter(openExceptions.value, 1, 4)))
-  avgTransitDays.value = Math.min(4.3, Math.max(2.4, Number(jitter(avgTransitDays.value, 0.03, 0.08).toFixed(2))))
-
-  const latestVolume = volumeSeries.value[volumeSeries.value.length - 1] ?? 90
-  const nextVolume = Math.max(52, Math.round(jitter(latestVolume, 3, 10)))
-  volumeSeries.value = [...volumeSeries.value.slice(1), nextVolume]
-
-  const latestOnTime = onTimeSeries.value[onTimeSeries.value.length - 1] ?? 96
-  const nextOnTime = Math.min(98, Math.max(93, Number(jitter(latestOnTime, 0.15, 0.35).toFixed(1))))
-  onTimeSeries.value = [...onTimeSeries.value.slice(1), nextOnTime]
-
-  regions.value = regions.value.map((region) => ({
-    ...region,
-    onTime: Math.min(98.9, Math.max(92.5, Number(jitter(region.onTime, 0.05, 0.3).toFixed(1)))),
-    shipments: Math.max(180, Math.round(jitter(region.shipments, 2, 12))),
-  }))
-
-  exceptions.value = exceptions.value.map((item) => ({
-    ...item,
-    ageHours: Math.max(1, item.ageHours + (Math.random() > 0.75 ? 1 : 0)),
-  }))
-}
-
-onMounted(() => {
-  timer = window.setInterval(tick, 2500)
-})
-
-onUnmounted(() => {
-  if (timer) {
-    window.clearInterval(timer)
-  }
-})
 </script>
 
 <template>
@@ -291,37 +339,34 @@ onUnmounted(() => {
       <template #prepend>
         <v-avatar color="primary" rounded="lg">FF</v-avatar>
       </template>
+
       <v-app-bar-title>
         FastForward Logistics Dashboard
-        <div class="text-caption text-medium-emphasis">
-          Leadership snapshot of shipment volume, on-time delivery, regional execution, and open
-          operational exceptions.
-        </div>
       </v-app-bar-title>
-      <v-chip size="small" color="secondary" class="mr-3" prepend-icon="mdi-update">
-        {{ updatedAt.toLocaleTimeString() }}
-      </v-chip>
+
+      <v-spacer />
+
+      <v-select
+        v-model="selectedMonth"
+        :items="monthOptions"
+        item-title="title"
+        item-value="value"
+        label="Month"
+        variant="outlined"
+        density="comfortable"
+        hide-details
+        style="max-width: 220px"
+        class="mr-3"
+      />
+
       <v-btn variant="tonal" color="primary" @click="toggleTheme">
         <v-icon start>{{ isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night' }}</v-icon>
         {{ themeLabel }}
       </v-btn>
     </v-app-bar>
 
-    <v-row class="mt-3 mb-1">
-      <v-col cols="12" lg="6">
-        <ProfileCard
-          :name="operationsLead.name"
-          :avatar="operationsLead.avatar"
-          :role="operationsLead.role"
-          :clients="operationsLead.clients"
-          :projects="operationsLead.projects"
-          :tasks="operationsLead.tasks"
-        />
-      </v-col>
-    </v-row>
-
-    <v-row>
-      <v-col v-for="metric in metrics" :key="metric.title" cols="12" sm="6" md="3">
+    <v-row class="mt-4">
+      <v-col v-for="metric in summaryMetrics" :key="metric.title" cols="12" sm="6" md="3">
         <MetricCard
           :title="metric.title"
           :value="metric.value"
@@ -337,12 +382,12 @@ onUnmounted(() => {
       <v-col cols="12" lg="6">
         <v-card elevation="2">
           <v-card-title class="d-flex align-center justify-space-between">
-            Shipment Volume Trend
-            <v-chip size="small" color="primary" variant="outlined">Last 12 intervals</v-chip>
+            Monthly Revenue
+            <v-chip size="small" color="primary" variant="outlined">Bar</v-chip>
           </v-card-title>
           <v-card-text>
-            <div style="height: 260px">
-              <Bar :data="volumeChartData" :options="volumeChartOptions" />
+            <div style="height: 280px">
+              <Bar :data="revenueChartData" :options="revenueChartOptions" />
             </div>
           </v-card-text>
         </v-card>
@@ -351,73 +396,32 @@ onUnmounted(() => {
       <v-col cols="12" lg="6">
         <v-card elevation="2">
           <v-card-title class="d-flex align-center justify-space-between">
-            On-Time Delivery Curve
-            <v-chip size="small" color="secondary" variant="outlined">Target 96%+</v-chip>
+            Visitors Trend
+            <v-chip size="small" color="secondary" variant="outlined">Line</v-chip>
           </v-card-title>
           <v-card-text>
-            <div style="height: 260px">
-              <Line :data="onTimeChartData" :options="onTimeChartOptions" />
+            <div style="height: 280px">
+              <Line :data="visitorsChartData" :options="visitorsChartOptions" />
             </div>
           </v-card-text>
         </v-card>
       </v-col>
+    </v-row>
 
-      <v-col cols="12" lg="6">
+    <v-row class="mt-1">
+      <v-col cols="12">
         <v-card elevation="2">
           <v-card-title class="d-flex align-center justify-space-between">
-            Regional Performance
-            <v-btn size="small" color="primary" variant="tonal" @click="openRegionalPerformance">
-              <v-icon start>mdi-map-marker-radius</v-icon>
-              Open Page
-            </v-btn>
+            Conversion Trend
+            <v-chip size="small" color="success" variant="outlined">Area</v-chip>
           </v-card-title>
           <v-card-text>
-            <v-list density="comfortable">
-              <v-list-item v-for="region in regions" :key="region.name">
-                <v-list-item-title>{{ region.name }}</v-list-item-title>
-                <v-list-item-subtitle>{{ region.shipments }} loads</v-list-item-subtitle>
-                <v-progress-linear
-                  class="mt-2"
-                  :model-value="region.onTime"
-                  color="success"
-                  rounded
-                  rounded-bar
-                  height="10"
-                />
-                <v-chip class="mt-2" size="small" color="success" variant="outlined">
-                  {{ region.onTime.toFixed(1) }}% on-time
-                </v-chip>
-              </v-list-item>
-            </v-list>
+            <div style="height: 300px">
+              <Line :data="conversionsChartData" :options="conversionsChartOptions" />
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
-
-      <v-col cols="12" lg="6">
-        <v-card elevation="2">
-          <v-card-title>Open Exceptions</v-card-title>
-          <v-card-subtitle>Highest impact first</v-card-subtitle>
-          <v-list density="comfortable">
-            <v-list-item v-for="item in exceptions" :key="item.id">
-              <v-list-item-title>{{ item.id }} · {{ item.lane }}</v-list-item-title>
-              <v-list-item-subtitle>{{ item.issue }}</v-list-item-subtitle>
-              <template #append>
-                <div class="d-flex align-center ga-2">
-                  <v-chip
-                    size="small"
-                    :color="item.priority === 'High' ? 'error' : item.priority === 'Medium' ? 'warning' : 'success'"
-                    variant="tonal"
-                  >
-                    {{ item.priority }}
-                  </v-chip>
-                  <v-chip size="small" variant="outlined">{{ item.ageHours }}h</v-chip>
-                </div>
-              </template>
-            </v-list-item>
-          </v-list>
-        </v-card>
-      </v-col>
-
     </v-row>
   </v-container>
 </template>
